@@ -1,0 +1,102 @@
+# Scimus
+
+A modern web application with React frontend and FastAPI backend.
+
+## Tech Stack
+
+### Frontend
+
+- **Vite** - Fast build tool and dev server
+- **React** - UI library with TypeScript
+- **pnpm** - Fast, disk space efficient package manager
+- **Tailwind CSS** - Utility-first CSS framework
+- **shadcn/ui** - Re-usable components built with Radix UI and Tailwind
+- **Storybook** - Component development and documentation
+
+### Backend
+
+- **FastAPI** - Modern, fast Python web framework
+- **Uvicorn** - Lightning-fast ASGI server
+- **Pydantic** - Data validation using Python type annotations
+
+## Project Structure
+
+```
+Scimus/
+├── frontend/              # React frontend application
+│   ├── src/
+│   ├── .storybook/        # Storybook configuration
+│   ├── components.json
+│   ├── package.json
+│   └── vite.config.ts
+├── backend/               # FastAPI backend application
+│   ├── app/
+│   │   ├── __init__.py
+│   │   └── main.py
+│   ├── requirements.txt
+│   ├── pyproject.toml
+│   └── README.md
+└── README.md
+```
+
+## Getting Started
+
+### Frontend
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+The frontend will be available at http://localhost:5173
+
+#### Storybook
+
+```bash
+cd frontend
+pnpm storybook
+```
+
+Storybook will be available at http://localhost:6006
+
+### Backend
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+Or with Poetry:
+
+```bash
+cd backend
+poetry install
+poetry run uvicorn app.main:app --reload
+```
+
+The backend API will be available at http://localhost:8000
+
+- API Documentation (Swagger): http://localhost:8000/docs
+- API Documentation (ReDoc): http://localhost:8000/redoc
+
+## Development
+
+### Frontend Development
+
+- Development server: `pnpm dev`
+- Build: `pnpm build`
+- Preview production build: `pnpm preview`
+- Lint: `pnpm lint`
+- Run Storybook: `pnpm storybook`
+- Build Storybook: `pnpm build-storybook`
+
+### Backend Development
+
+- Run development server: `uvicorn app.main:app --reload`
+- Run tests: `pytest`
+
+## License
+
+MIT
