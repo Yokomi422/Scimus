@@ -67,7 +67,7 @@ Scimus/
 - [Bun](https://bun.sh) >= 1.0
 - [Node.js](https://nodejs.org) >= 18.0
 - [pnpm](https://pnpm.io) >= 8.0
-- [Python](https://python.org) >= 3.11 (for Python services)
+- [uv](https://github.com/astral-sh/uv) - Fast Python package installer (for Python services)
 
 ### Installation
 
@@ -103,15 +103,14 @@ cd apps/frontend && pnpm storybook
 ```bash
 cd services/python
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (uv manages virtual environment automatically)
+uv sync
 
 # Run service (http://localhost:8000)
-python main.py
+uv run python main.py
+
+# Or run with uvicorn
+uv run uvicorn main:app --reload --port 8000
 ```
 
 ## Database
