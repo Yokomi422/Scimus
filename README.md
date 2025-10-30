@@ -1,6 +1,6 @@
 # Scimus
 
-A modern web application with React frontend and FastAPI backend.
+A modern TypeScript monorepo web application with Python microservices for ML and PDF processing.
 
 ## Tech Stack
 
@@ -8,94 +8,191 @@ A modern web application with React frontend and FastAPI backend.
 
 - **Vite** - Fast build tool and dev server
 - **React** - UI library with TypeScript
-- **pnpm** - Fast, disk space efficient package manager
+- **pnpm** - Fast, disk space efficient package manager (monorepo support)
 - **Tailwind CSS** - Utility-first CSS framework
 - **shadcn/ui** - Re-usable components built with Radix UI and Tailwind
 - **Storybook** - Component development and documentation
 
-### Backend
+### Backend (TypeScript)
 
-- **FastAPI** - Modern, fast Python web framework
-- **Uvicorn** - Lightning-fast ASGI server
-- **Pydantic** - Data validation using Python type annotations
+- **Bun** - Fast JavaScript runtime
+- **Hono** - Ultrafast web framework
+- **Drizzle ORM** - TypeScript ORM with excellent type safety
+- **SQLite** - Lightweight, serverless database
+
+### Python Services
+
+- **FastAPI** - Modern Python web framework for microservices
+- **Python ML/PDF** - Machine learning and PDF processing services
+
+### Monorepo
+
+- **pnpm workspaces** - Efficient monorepo package management
+- **Shared types** - Type-safe communication between frontend and backend
 
 ## Project Structure
 
 ```
 Scimus/
-├── frontend/              # React frontend application
-│   ├── src/
-│   ├── .storybook/        # Storybook configuration
-│   ├── components.json
-│   ├── package.json
-│   └── vite.config.ts
-├── backend/               # FastAPI backend application
-│   ├── app/
-│   │   ├── __init__.py
-│   │   └── main.py
-│   ├── requirements.txt
-│   ├── pyproject.toml
-│   └── README.md
+├── apps/
+│   ├── frontend/              # React + Vite + TypeScript
+│   │   ├── src/
+│   │   ├── .storybook/        # Storybook configuration
+│   │   └── package.json
+│   └── backend/               # Bun + Hono + Drizzle
+│       ├── src/
+│       │   ├── db/            # Database schema and connection
+│       │   └── index.ts       # Main application
+│       ├── drizzle.config.ts
+│       └── package.json
+├── packages/
+│   └── shared-types/          # Shared TypeScript types
+│       └── src/
+│           └── index.ts
+├── services/
+│   └── python/                # Python microservices
+│       ├── ml/                # Machine learning
+│       ├── pdf/               # PDF processing
+│       ├── main.py
+│       └── requirements.txt
+├── pnpm-workspace.yaml
+├── package.json
 └── README.md
 ```
 
 ## Getting Started
 
-### Frontend
+### Prerequisites
+
+- [Bun](https://bun.sh) >= 1.0
+- [Node.js](https://nodejs.org) >= 18.0
+- [pnpm](https://pnpm.io) >= 8.0
+- [Python](https://python.org) >= 3.11 (for Python services)
+
+### Installation
 
 ```bash
-cd frontend
+# Install all dependencies (uses pnpm workspaces)
 pnpm install
+```
+
+### Development
+
+#### Run all services
+
+```bash
+# Run frontend and backend in parallel
 pnpm dev
 ```
 
-The frontend will be available at http://localhost:5173
-
-#### Storybook
+#### Run individually
 
 ```bash
-cd frontend
-pnpm storybook
+# Frontend (http://localhost:5173)
+pnpm dev:frontend
+
+# Backend (http://localhost:3001)
+pnpm dev:backend
+
+# Storybook (http://localhost:6006)
+cd apps/frontend && pnpm storybook
 ```
 
-Storybook will be available at http://localhost:6006
+#### Python Services
+
+```bash
+cd services/python
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run service (http://localhost:8000)
+python main.py
+```
+
+## Database
+
+### Setup SQLite database
+
+```bash
+cd apps/backend
+
+# Generate migration
+bun run db:generate
+
+# Apply migration
+bun run db:push
+
+# Open Drizzle Studio (database GUI)
+bun run db:studio
+```
+
+## API Endpoints
+
+### Main Backend (Bun + Hono)
+
+- Health check: `GET http://localhost:3001/health`
+- API v1: `GET http://localhost:3001/api/v1`
+
+### Python Services
+
+- Health check: `GET http://localhost:8000/health`
+- ML service: `GET http://localhost:8000/ml`
+- PDF service: `GET http://localhost:8000/pdf`
+- API docs: http://localhost:8000/docs
+
+## Development Commands
+
+### Root
+
+```bash
+pnpm dev              # Run all apps in parallel
+pnpm build            # Build all apps
+pnpm lint             # Lint all apps
+pnpm typecheck        # Type check all apps
+```
+
+### Frontend
+
+```bash
+cd apps/frontend
+pnpm dev              # Development server
+pnpm build            # Build for production
+pnpm preview          # Preview production build
+pnpm storybook        # Run Storybook
+pnpm typecheck        # Type check
+```
 
 ### Backend
 
 ```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+cd apps/backend
+bun run dev           # Development server with watch mode
+bun run build         # Build for production
+bun run start         # Run production build
+bun run typecheck     # Type check
+bun run db:generate   # Generate database migration
+bun run db:push       # Apply database migration
+bun run db:studio     # Open Drizzle Studio
 ```
 
-Or with Poetry:
+## Architecture
 
-```bash
-cd backend
-poetry install
-poetry run uvicorn app.main:app --reload
-```
+This project uses a **monorepo architecture** with **TypeScript-first** approach:
 
-The backend API will be available at http://localhost:8000
+1. **Frontend and Backend share types** via `@scimus/shared-types` package
+2. **Main API** (TypeScript/Bun) handles web requests and database operations
+3. **Python Services** handle CPU-intensive tasks:
+   - Machine learning inference
+   - PDF generation and parsing
+   - Image processing
+   - Data analysis
 
-- API Documentation (Swagger): http://localhost:8000/docs
-- API Documentation (ReDoc): http://localhost:8000/redoc
-
-## Development
-
-### Frontend Development
-
-- Development server: `pnpm dev`
-- Build: `pnpm build`
-- Preview production build: `pnpm preview`
-- Lint: `pnpm lint`
-- Run Storybook: `pnpm storybook`
-- Build Storybook: `pnpm build-storybook`
-
-### Backend Development
-
-- Run development server: `uvicorn app.main:app --reload`
-- Run tests: `pytest`
+The TypeScript backend communicates with Python services via HTTP when needed.
 
 ## License
 

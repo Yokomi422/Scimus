@@ -19,7 +19,8 @@
     /* Path alias */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@scimus/shared-types": ["../../packages/shared-types/src"]
     },
 
     /* Linting */
