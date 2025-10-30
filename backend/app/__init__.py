@@ -1,1 +1,0 @@
-"""Scimus Backend Application."""
