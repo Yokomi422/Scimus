@@ -8,14 +8,13 @@ A modern TypeScript monorepo web application with Python microservices for ML an
 
 - **Vite** - Fast build tool and dev server
 - **React** - UI library with TypeScript
-- **pnpm** - Fast, disk space efficient package manager (monorepo support)
 - **Tailwind CSS** - Utility-first CSS framework
 - **shadcn/ui** - Re-usable components built with Radix UI and Tailwind
 - **Storybook** - Component development and documentation
 
 ### Backend (TypeScript)
 
-- **Bun** - Fast JavaScript runtime
+- **Bun** - Fast JavaScript runtime and package manager
 - **Hono** - Ultrafast web framework
 - **Drizzle ORM** - TypeScript ORM with excellent type safety
 - **SQLite** - Lightweight, serverless database
@@ -27,7 +26,7 @@ A modern TypeScript monorepo web application with Python microservices for ML an
 
 ### Monorepo
 
-- **pnpm workspaces** - Efficient monorepo package management
+- **Bun workspaces** - Fast, efficient monorepo package management
 - **Shared types** - Type-safe communication between frontend and backend
 
 ## Project Structure
@@ -65,15 +64,13 @@ Scimus/
 ### Prerequisites
 
 - [Bun](https://bun.sh) >= 1.0
-- [Node.js](https://nodejs.org) >= 18.0
-- [pnpm](https://pnpm.io) >= 8.0
 - [uv](https://github.com/astral-sh/uv) - Fast Python package installer (for Python services)
 
 ### Installation
 
 ```bash
-# Install all dependencies (uses pnpm workspaces)
-pnpm install
+# Install all dependencies (uses Bun workspaces)
+bun install
 ```
 
 ### Development
@@ -82,20 +79,20 @@ pnpm install
 
 ```bash
 # Run frontend and backend in parallel
-pnpm dev
+bun dev
 ```
 
 #### Run individually
 
 ```bash
 # Frontend (http://localhost:5173)
-pnpm dev:frontend
+bun dev:frontend
 
 # Backend (http://localhost:3001)
-pnpm dev:backend
+bun dev:backend
 
 # Storybook (http://localhost:6006)
-cd apps/frontend && pnpm storybook
+cd apps/frontend && bun storybook
 ```
 
 #### Python Services
@@ -149,21 +146,21 @@ bun run db:studio
 ### Root
 
 ```bash
-pnpm dev              # Run all apps in parallel
-pnpm build            # Build all apps
-pnpm lint             # Lint all apps
-pnpm typecheck        # Type check all apps
+bun dev               # Run all apps in parallel
+bun build             # Build all apps
+bun lint              # Lint all apps
+bun typecheck         # Type check all apps
 ```
 
 ### Frontend
 
 ```bash
 cd apps/frontend
-pnpm dev              # Development server
-pnpm build            # Build for production
-pnpm preview          # Preview production build
-pnpm storybook        # Run Storybook
-pnpm typecheck        # Type check
+bun dev               # Development server
+bun build             # Build for production
+bun preview           # Preview production build
+bun storybook         # Run Storybook
+bun typecheck         # Type check
 ```
 
 ### Backend
@@ -183,9 +180,10 @@ bun run db:studio     # Open Drizzle Studio
 
 This project uses a **monorepo architecture** with **TypeScript-first** approach:
 
-1. **Frontend and Backend share types** via `@scimus/shared-types` package
-2. **Main API** (TypeScript/Bun) handles web requests and database operations
-3. **Python Services** handle CPU-intensive tasks:
+1. **Bun workspaces** manage all TypeScript packages (frontend, backend, shared-types)
+2. **Frontend and Backend share types** via `@scimus/shared-types` package
+3. **Main API** (TypeScript/Bun) handles web requests and database operations
+4. **Python Services** handle CPU-intensive tasks:
    - Machine learning inference
    - PDF generation and parsing
    - Image processing

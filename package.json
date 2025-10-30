@@ -3,19 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "description": "A modern web application with TypeScript monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
-    "dev:frontend": "pnpm --filter frontend dev",
-    "dev:backend": "pnpm --filter backend dev",
-    "build": "pnpm --recursive build",
-    "lint": "pnpm --recursive lint",
-    "typecheck": "pnpm --recursive typecheck"
+    "dev": "bun --filter \"./apps/*\" dev",
+    "dev:frontend": "bun --filter frontend dev",
+    "dev:backend": "bun --filter backend dev",
+    "build": "bun --filter \"*\" build",
+    "lint": "bun --filter \"*\" lint",
+    "typecheck": "bun --filter \"*\" typecheck"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "engines": {
-    "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
+    "bun": ">=1.0.0"
   }
 }
