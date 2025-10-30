@@ -10,32 +10,45 @@ services/python/
 ├── pdf/             # PDF processing utilities
 ├── common/          # Shared utilities
 ├── main.py          # FastAPI application
-└── requirements.txt
+├── pyproject.toml   # Project configuration and dependencies
+└── uv.lock          # Locked dependencies
+```
+
+## Prerequisites
+
+- [uv](https://github.com/astral-sh/uv) - Fast Python package installer and resolver
+
+Install uv:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ## Setup
 
-### Create virtual environment
+uv automatically manages virtual environments and dependencies:
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+# Install dependencies (creates .venv automatically)
+uv sync
 
-### Install dependencies
-
-```bash
-pip install -r requirements.txt
+# Or manually activate the virtual environment
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
 ## Development
 
 ```bash
-# Start the service
-python main.py
+# Start the service using uv
+uv run python main.py
 
 # Or with uvicorn directly
-uvicorn main:app --reload --port 8000
+uv run uvicorn main:app --reload --port 8000
+
+# Add new dependencies
+uv add package-name
+
+# Add dev dependencies
+uv add --dev package-name
 ```
 
 The service will be available at http://localhost:8000

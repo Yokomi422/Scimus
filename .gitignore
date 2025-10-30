@@ -24,6 +24,7 @@ services/python/**/*$py.class
 services/python/**/*.so
 services/python/.Python
 services/python/venv/
+services/python/.venv/
 services/python/env/
 services/python/ENV/
 services/python/.pytest_cache/
