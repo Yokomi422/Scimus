@@ -1,11 +1,13 @@
-import  Header  from "@/components/Header"
-import  PageUploader  from "@/components/PageUploader"
+import Header from "@/components/Header"
+import PageUploader from "@/components/PageUploader"
+import { Toaster } from "sonner"
 
 function App() {
   return (
     <>
-      <Header></Header>
-      <PageUploader></PageUploader>
+      <Header />
+      <PageUploader />
+      <Toaster richColors position="top-right" />
     </>
   )
 }

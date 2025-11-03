@@ -1,52 +1,24 @@
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from '@/components/ui/shadcn-io/dropzone';
-import { useState, useEffect } from 'react';
-import Uppy from '@uppy/core';
-import Tus from '@uppy/tus';
+import { useState } from 'react';
+import axios, { type AxiosProgressEvent, type CancelTokenSource } from 'axios';
 import { Progress } from '@/components/ui/progress';
+import { toast } from 'sonner';
 
 interface FileUploadProgress {
   file: File;
   progress: number;
   status: 'idle' | 'uploading' | 'success' | 'error';
   error?: string;
-  uppyFileId?: string;
+  cancelTokenSource?: CancelTokenSource;
+  startTime?: number;
+  uploadedBytes?: number;
+  estimatedTimeRemaining?: number;
 }
 
 export default function PageUploader() {
   const [files, setFiles] = useState<File[] | undefined>();
   const [uploadProgress, setUploadProgress] = useState<Map<string, FileUploadProgress>>(new Map());
   const [error, setError] = useState<string | null>(null);
-  const [uppy, setUppy] = useState<Uppy | null>(null);
-
-  useEffect(() => {
-    // Uppyインスタンスの初期化
-    const uppyInstance = new Uppy({
-      restrictions: {
-        maxFileSize: 100 * 1024 * 1024, // 100MB
-        allowedFileTypes: ['application/pdf'],
-        maxNumberOfFiles: 5,
-      },
-      autoProceed: false,
-    });
-
-    // Tusプラグインの設定
-    // TODO: バックエンドのTusエンドポイントを実装後に有効化
-    /*
-    uppyInstance.use(Tus, {
-      endpoint: 'http://localhost:3001/api/v1/upload',
-      retryDelays: [0, 1000, 3000, 5000],
-      chunkSize: 5 * 1024 * 1024, // 5MB chunks
-      removeFingerprintOnSuccess: true,
-    });
-    */
-
-    setUppy(uppyInstance);
-
-    return () => {
-      uppyInstance.cancelAll();
-      uppyInstance.clear();
-    };
-  }, []);
 
   const handleDrop = (acceptedFiles: File[]) => {
     setFiles((prev) => {
@@ -79,8 +51,8 @@ export default function PageUploader() {
     if (fileToRemove) {
       // アップロード中の場合はキャンセル
       const progressInfo = uploadProgress.get(fileToRemove.name);
-      if (progressInfo?.uppyFileId && uppy) {
-        uppy.removeFile(progressInfo.uppyFileId);
+      if (progressInfo?.cancelTokenSource && progressInfo.status === 'uploading') {
+        progressInfo.cancelTokenSource.cancel('アップロードがキャンセルされました');
       }
 
       setUploadProgress((prev) => {
@@ -95,38 +67,203 @@ export default function PageUploader() {
 
   const handleCancelUpload = (fileName: string) => {
     const progressInfo = uploadProgress.get(fileName);
-    if (progressInfo?.uppyFileId && uppy) {
-      uppy.removeFile(progressInfo.uppyFileId);
+    if (progressInfo?.cancelTokenSource && progressInfo.status === 'uploading') {
+      progressInfo.cancelTokenSource.cancel('アップロードがキャンセルされました');
       setUploadProgress((prev) => {
         const newMap = new Map(prev);
         newMap.set(fileName, {
           ...progressInfo,
           status: 'idle',
           progress: 0,
+          cancelTokenSource: undefined,
+          startTime: undefined,
+          uploadedBytes: undefined,
+          estimatedTimeRemaining: undefined,
         });
         return newMap;
       });
+      toast.info(`${fileName} のアップロードをキャンセルしました`);
     }
   };
 
-  const getErrorMessage = (error: Error | string): string => {
-    const message = typeof error === 'string' ? error : error.message;
+  const getErrorMessage = (error: any): string => {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
 
-    if (message.includes('413')) {
-      return 'ファイルサイズが大きすぎます。100MB以下のファイルをアップロードしてください。';
+      if (status === 413) {
+        return 'ファイルサイズが大きすぎます。100MB以下のファイルをアップロードしてください。';
+      }
+      if (status === 415) {
+        return 'PDFファイルのみアップロード可能です。';
+      }
+      if (status === 429) {
+        return 'アップロードの制限に達しました。しばらく待ってから再試行してください。';
+      }
+      if (status === 500 || status === 503) {
+        return 'サーバーエラーが発生しました。しばらく待ってから再試行してください。';
+      }
     }
-    if (message.includes('415')) {
-      return 'PDFファイルのみアップロード可能です。';
-    }
-    if (message.includes('429')) {
-      return 'アップロードの制限に達しました。しばらく待ってから再試行してください。';
-    }
-    if (message.includes('500') || message.includes('503')) {
-      return 'サーバーエラーが発生しました。しばらく待ってから再試行してください。';
+
+    const message = error?.message || String(error);
+    if (message.includes('cancel')) {
+      return 'アップロードがキャンセルされました。';
     }
 
     return message || 'アップロード中にエラーが発生しました。';
   };
+
+  const formatTimeRemaining = (seconds: number): string => {
+    if (seconds < 60) {
+      return `約${Math.ceil(seconds)}秒`;
+    }
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.ceil(seconds % 60);
+    return `約${minutes}分${remainingSeconds > 0 ? remainingSeconds + '秒' : ''}`;
+  };
+
+  const uploadFile = async (file: File) => {
+    const cancelTokenSource = axios.CancelToken.source();
+    const startTime = Date.now();
+
+    setUploadProgress((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(file.name, {
+        file,
+        progress: 0,
+        status: 'uploading',
+        cancelTokenSource,
+        startTime,
+        uploadedBytes: 0,
+      });
+      return newMap;
+    });
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await axios.post('http://localhost:3001/api/v1/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        cancelToken: cancelTokenSource.token,
+        onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            const currentTime = Date.now();
+            const elapsedTime = (currentTime - startTime) / 1000; // 秒単位
+            const uploadSpeed = progressEvent.loaded / elapsedTime; // bytes/sec
+            const remainingBytes = progressEvent.total - progressEvent.loaded;
+            const estimatedTimeRemaining = remainingBytes / uploadSpeed; // 秒
+
+            setUploadProgress((prev) => {
+              const newMap = new Map(prev);
+              const current = newMap.get(file.name);
+              if (current && current.status === 'uploading') {
+                newMap.set(file.name, {
+                  ...current,
+                  progress: percentCompleted,
+                  uploadedBytes: progressEvent.loaded,
+                  estimatedTimeRemaining: estimatedTimeRemaining > 0 ? estimatedTimeRemaining : undefined,
+                });
+              }
+              return newMap;
+            });
+          }
+        },
+      });
+
+      setUploadProgress((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(file.name, {
+          file,
+          progress: 100,
+          status: 'success',
+        });
+        return newMap;
+      });
+
+      toast.success(`${file.name} のアップロードが完了しました`);
+      return response.data;
+    } catch (error: any) {
+      if (axios.isCancel(error)) {
+        // キャンセルされた場合は何もしない（handleCancelUploadで処理済み）
+        return;
+      }
+
+      const errorMessage = getErrorMessage(error);
+
+      setUploadProgress((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(file.name, {
+          file,
+          progress: 0,
+          status: 'error',
+          error: errorMessage,
+        });
+        return newMap;
+      });
+
+      // sonnerで再試行アクション付きエラー通知
+      toast.error(`${file.name} のアップロードに失敗しました`, {
+        description: errorMessage,
+        action: {
+          label: '再試行',
+          onClick: () => handleRetryUpload(file),
+        },
+      });
+
+      throw error;
+    }
+  };
+
+  const handleRetryUpload = async (file: File) => {
+    setUploadProgress((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(file.name, {
+        file,
+        progress: 0,
+        status: 'idle',
+      });
+      return newMap;
+    });
+
+    try {
+      await uploadFile(file);
+    } catch (error) {
+      console.error('Retry failed:', error);
+    }
+  };
+
+  const handleProcessFiles = async () => {
+    if (!files || files.length === 0) return;
+
+    toast.info(`${files.length}件のドキュメントをアップロード中...`);
+
+    for (const file of files) {
+      const progressInfo = uploadProgress.get(file.name);
+      // idleまたはerrorのファイルのみアップロード
+      if (!progressInfo || progressInfo.status === 'idle' || progressInfo.status === 'error') {
+        try {
+          await uploadFile(file);
+        } catch (error) {
+          // エラーは個別に処理されるため、ここでは何もしない
+        }
+      }
+    }
+
+    // すべて成功したかチェック
+    const allSuccess = files.every(file => {
+      const info = uploadProgress.get(file.name);
+      return info?.status === 'success';
+    });
+
+    if (allSuccess) {
+      toast.success('すべてのドキュメントのアップロードが完了しました！');
+    }
+  };
+
+  const isUploading = Array.from(uploadProgress.values()).some(p => p.status === 'uploading');
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -235,6 +372,11 @@ export default function PageUploader() {
                               <span className="text-xs text-gray-600">
                                 アップロード中... {progressInfo.progress}%
                               </span>
+                              {progressInfo.estimatedTimeRemaining !== undefined && progressInfo.estimatedTimeRemaining > 1 && (
+                                <span className="text-xs text-gray-500">
+                                  残り {formatTimeRemaining(progressInfo.estimatedTimeRemaining)}
+                                </span>
+                              )}
                             </div>
                             <Progress value={progressInfo.progress} className="h-2" />
                           </div>
@@ -243,13 +385,10 @@ export default function PageUploader() {
                         {/* エラーメッセージ */}
                         {isError && progressInfo?.error && (
                           <div className="mt-2">
-                            <p className="text-xs text-red-600">{getErrorMessage(progressInfo.error)}</p>
+                            <p className="text-xs text-red-600">{progressInfo.error}</p>
                             <button
                               className="mt-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-                              onClick={() => {
-                                // 再試行ロジック（後で実装）
-                                console.log('Retry upload:', file.name);
-                              }}
+                              onClick={() => handleRetryUpload(file)}
                             >
                               再試行
                             </button>
@@ -314,11 +453,8 @@ export default function PageUploader() {
           </div>
           <button
             className="mt-4 w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => {
-              // TODO: 実際のアップロード処理を実装
-              console.log('Process files:', files);
-            }}
-            disabled={Array.from(uploadProgress.values()).some(p => p.status === 'uploading')}
+            onClick={handleProcessFiles}
+            disabled={isUploading}
           >
             {files.length}件のドキュメントを処理
           </button>
