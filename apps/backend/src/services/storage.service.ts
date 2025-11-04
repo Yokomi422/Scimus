@@ -7,8 +7,10 @@ import * as Minio from "minio";
 export interface IStorageService {
   uploadFile(bucket: string, objectName: string, file: File): Promise<void>;
   getPresignedUploadUrl(bucket: string, objectName: string, expirySeconds: number): Promise<string>;
+  getPresignedDownloadUrl(bucket: string, objectName: string, expirySeconds: number): Promise<string>;
   deleteFile(bucket: string, objectName: string): Promise<void>;
   ensureBucket(bucket: string): Promise<void>;
+  getFileMetadata(bucket: string, objectName: string): Promise<{ etag: string; size: number }>;
 }
 
 /**
@@ -85,6 +87,34 @@ export class MinIOStorageService implements IStorageService {
       return url;
     } catch (error) {
       console.error(`❌ Error generating presigned URL:`, error);
+      throw error;
+    }
+  }
+
+  async getPresignedDownloadUrl(
+    bucket: string,
+    objectName: string,
+    expirySeconds: number = 300
+  ): Promise<string> {
+    try {
+      const url = await this.client.presignedGetObject(bucket, objectName, expirySeconds);
+      console.log(`🔗 Generated presigned download URL for: ${bucket}/${objectName} (expires in ${expirySeconds}s)`);
+      return url;
+    } catch (error) {
+      console.error(`❌ Error generating presigned download URL:`, error);
+      throw error;
+    }
+  }
+
+  async getFileMetadata(bucket: string, objectName: string): Promise<{ etag: string; size: number }> {
+    try {
+      const stat = await this.client.statObject(bucket, objectName);
+      return {
+        etag: stat.etag,
+        size: stat.size,
+      };
+    } catch (error) {
+      console.error(`❌ Error getting file metadata:`, error);
       throw error;
     }
   }

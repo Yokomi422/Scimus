@@ -1,5 +1,6 @@
 import Header from "@/components/Header"
 import PageUploader from "@/components/PageUploader"
+import PdfFileList from "@/components/PdfFileList"
 import { Toaster } from "sonner"
 
 function App() {
@@ -7,6 +8,7 @@ function App() {
     <>
       <Header />
       <PageUploader />
+      <PdfFileList />
       <Toaster richColors position="top-right" />
     </>
   )

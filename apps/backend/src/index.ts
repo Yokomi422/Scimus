@@ -4,6 +4,9 @@ import { logger } from "hono/logger";
 import { bodyLimit } from "hono/body-limit";
 import path from "path";
 import { createStorageService } from "./services/storage.service";
+import { db } from "./db";
+import { pdfFiles } from "./db/schema";
+import { eq } from "drizzle-orm";
 
 const app = new Hono();
 
@@ -186,10 +189,35 @@ api.post(
         await storageService.uploadFile(bucketName, fileName, file);
         console.log(`✅ File uploaded to ${storageType.toUpperCase()}: ${fileName} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
 
+        // Get file metadata from storage
+        let etag: string | undefined;
+        try {
+          const metadata = await storageService.getFileMetadata(bucketName, fileName);
+          etag = metadata.etag;
+        } catch (error) {
+          console.warn("Failed to get file metadata:", error);
+        }
+
+        // Save metadata to database
+        const [savedFile] = await db
+          .insert(pdfFiles)
+          .values({
+            fileKey: fileName,
+            originalFilename: file.name,
+            fileSize: file.size,
+            contentType: file.type,
+            bucket: bucketName,
+            storageProvider: storageType,
+            etag: etag,
+            processingStatus: "completed",
+          })
+          .returning();
+
         return c.json({
           success: true,
           message: "ファイルのアップロードに成功しました",
           storageType,
+          data: savedFile,
           file: {
             name: file.name,
             size: file.size,
@@ -230,6 +258,184 @@ api.post(
     }
   }
 );
+
+// Get all PDF files
+api.get("/files", async (c) => {
+  try {
+    const files = await db.select().from(pdfFiles).orderBy(pdfFiles.uploadedAt);
+
+    return c.json({
+      success: true,
+      data: files,
+    });
+  } catch (error) {
+    console.error("Error fetching files:", error);
+    return c.json(
+      {
+        success: false,
+        error: "ファイル一覧の取得に失敗しました",
+        message: error instanceof Error ? error.message : "不明なエラーが発生しました",
+      },
+      500
+    );
+  }
+});
+
+// Get specific PDF file by ID
+api.get("/files/:id", async (c) => {
+  try {
+    const id = parseInt(c.req.param("id"));
+
+    if (isNaN(id)) {
+      return c.json(
+        {
+          success: false,
+          error: "無効なID",
+          message: "IDは数値である必要があります",
+        },
+        400
+      );
+    }
+
+    const file = await db.select().from(pdfFiles).where(eq(pdfFiles.id, id)).limit(1);
+
+    if (!file || file.length === 0) {
+      return c.json(
+        {
+          success: false,
+          error: "ファイルが見つかりません",
+          message: `ID ${id} のファイルは存在しません`,
+        },
+        404
+      );
+    }
+
+    return c.json({
+      success: true,
+      data: file[0],
+    });
+  } catch (error) {
+    console.error("Error fetching file:", error);
+    return c.json(
+      {
+        success: false,
+        error: "ファイルの取得に失敗しました",
+        message: error instanceof Error ? error.message : "不明なエラーが発生しました",
+      },
+      500
+    );
+  }
+});
+
+// Get download URL for PDF file
+api.get("/files/:id/download", async (c) => {
+  try {
+    const id = parseInt(c.req.param("id"));
+
+    if (isNaN(id)) {
+      return c.json(
+        {
+          success: false,
+          error: "無効なID",
+          message: "IDは数値である必要があります",
+        },
+        400
+      );
+    }
+
+    const file = await db.select().from(pdfFiles).where(eq(pdfFiles.id, id)).limit(1);
+
+    if (!file || file.length === 0) {
+      return c.json(
+        {
+          success: false,
+          error: "ファイルが見つかりません",
+          message: `ID ${id} のファイルは存在しません`,
+        },
+        404
+      );
+    }
+
+    const fileData = file[0];
+    const expirySeconds = parseInt(process.env.PRESIGNED_URL_EXPIRY || "300");
+
+    const downloadUrl = await storageService.getPresignedDownloadUrl(
+      fileData.bucket,
+      fileData.fileKey,
+      expirySeconds
+    );
+
+    return c.json({
+      success: true,
+      downloadUrl,
+      expiresIn: expirySeconds,
+    });
+  } catch (error) {
+    console.error("Error generating download URL:", error);
+    return c.json(
+      {
+        success: false,
+        error: "ダウンロードURLの生成に失敗しました",
+        message: error instanceof Error ? error.message : "不明なエラーが発生しました",
+      },
+      500
+    );
+  }
+});
+
+// Delete PDF file
+api.delete("/files/:id", async (c) => {
+  try {
+    const id = parseInt(c.req.param("id"));
+
+    if (isNaN(id)) {
+      return c.json(
+        {
+          success: false,
+          error: "無効なID",
+          message: "IDは数値である必要があります",
+        },
+        400
+      );
+    }
+
+    const file = await db.select().from(pdfFiles).where(eq(pdfFiles.id, id)).limit(1);
+
+    if (!file || file.length === 0) {
+      return c.json(
+        {
+          success: false,
+          error: "ファイルが見つかりません",
+          message: `ID ${id} のファイルは存在しません`,
+        },
+        404
+      );
+    }
+
+    const fileData = file[0];
+
+    // Delete from storage
+    await storageService.deleteFile(fileData.bucket, fileData.fileKey);
+
+    // Delete from database
+    await db.delete(pdfFiles).where(eq(pdfFiles.id, id));
+
+    return c.json({
+      success: true,
+      message: "ファイルを削除しました",
+    });
+  } catch (error) {
+    console.error("Error deleting file:", error);
+    return c.json(
+      {
+        success: false,
+        error: "ファイルの削除に失敗しました",
+        message: error instanceof Error ? error.message : "不明なエラーが発生しました",
+      },
+      500
+    );
+  }
+});
 
 app.route("/api/v1", api);
 
