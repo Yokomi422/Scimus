@@ -24,4 +24,51 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
   };
 }
 
+// PDF File types
+export type ProcessingStatus = "pending" | "processing" | "completed" | "failed";
+
+export interface PdfFile {
+  id: number;
+  fileKey: string;
+  originalFilename: string;
+  fileSize: number;
+  contentType: string;
+  bucket: string;
+  storageProvider: string;
+  etag?: string | null;
+  userId?: number | null;
+  uploadedBy?: string | null;
+  processingStatus: ProcessingStatus;
+  uploadedAt: Date;
+  updatedAt: Date;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface PdfFileMetadata {
+  pages?: number;
+  author?: string;
+  title?: string;
+  subject?: string;
+  keywords?: string;
+  creationDate?: string;
+  [key: string]: unknown;
+}
+
+export interface UploadResponse extends ApiResponse<PdfFile> {
+  file?: {
+    name: string;
+    size: number;
+    type: string;
+    savedAs: string;
+    bucket?: string;
+    uploadedAt: string;
+  };
+  storageType?: string;
+}
+
+export interface DownloadUrlResponse extends ApiResponse {
+  downloadUrl?: string;
+  expiresIn?: number;
+}
+
 // Add more shared types here
