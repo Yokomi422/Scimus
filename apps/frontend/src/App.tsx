@@ -1,14 +1,15 @@
-import Header from "@/components/Header"
-import PageUploader from "@/components/PageUploader"
-import PdfFileList from "@/components/PdfFileList"
+import { Routes, Route } from "react-router-dom"
 import { Toaster } from "sonner"
+import Home from "@/pages/Home"
+import PdfPreview from "@/pages/PdfPreview"
 
 function App() {
   return (
     <>
-      <Header />
-      <PageUploader />
-      <PdfFileList />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/preview/:fileId" element={<PdfPreview />} />
+      </Routes>
       <Toaster richColors position="top-right" />
     </>
   )
