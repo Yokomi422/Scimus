@@ -5,8 +5,8 @@ import { bodyLimit } from "hono/body-limit";
 import path from "path";
 import { createStorageService } from "./services/storage.service";
 import { db } from "./db";
-import { pdfFiles } from "./db/schema";
-import { eq } from "drizzle-orm";
+import { files, notes } from "./db/schema";
+import { eq, desc } from "drizzle-orm";
 
 const app = new Hono();
 
@@ -62,12 +62,24 @@ api.post("/upload/presigned-url", async (c) => {
       );
     }
 
-    // PDF validation
-    if (fileType !== "application/pdf") {
+    // Validate file types - support PDF, images, text files, markdown
+    const allowedTypes = [
+      "application/pdf",
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "text/plain",
+      "text/markdown",
+      "application/octet-stream", // For .md files sometimes
+    ];
+
+    if (!allowedTypes.includes(fileType)) {
       return c.json(
         {
           error: "無効なファイル形式",
-          message: "PDFファイルのみアップロード可能です",
+          message: "PDF, 画像 (JPG, PNG, GIF, WEBP), テキスト (TXT, MD) のみアップロード可能です",
         },
         415
       );
@@ -151,16 +163,40 @@ api.post(
         );
       }
 
-      // PDFファイルかチェック
-      if (file.type !== "application/pdf") {
+      // Validate file types
+      const allowedTypes = [
+        "application/pdf",
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "text/plain",
+        "text/markdown",
+        "application/octet-stream",
+      ];
+
+      if (!allowedTypes.includes(file.type)) {
         return c.json(
           {
             error: "無効なファイル形式",
-            message: "PDFファイルのみアップロード可能です",
+            message: "PDF, 画像 (JPG, PNG, GIF, WEBP), テキスト (TXT, MD) のみアップロード可能です",
           },
           415
         );
       }
+
+      // Determine file type category
+      const getFileType = (mimeType: string, fileName: string): "pdf" | "image" | "document" | "other" => {
+        if (mimeType === "application/pdf") return "pdf";
+        if (mimeType.startsWith("image/")) return "image";
+        if (mimeType === "text/plain" || mimeType === "text/markdown" || fileName.endsWith(".md")) {
+          return "document";
+        }
+        return "other";
+      };
+
+      const fileType = getFileType(file.type, file.name);
 
       // ファイルサイズチェック（念のため）
       if (file.size > 100 * 1024 * 1024) {
@@ -200,12 +236,13 @@ api.post(
 
         // Save metadata to database
         const [savedFile] = await db
-          .insert(pdfFiles)
+          .insert(files)
           .values({
             fileKey: fileName,
             originalFilename: file.name,
             fileSize: file.size,
             contentType: file.type,
+            fileType: fileType,
             bucket: bucketName,
             storageProvider: storageType,
             etag: etag,
@@ -259,14 +296,26 @@ api.post(
   }
 );
 
-// Get all PDF files
+// Get all files (with optional type filter)
 api.get("/files", async (c) => {
   try {
-    const files = await db.select().from(pdfFiles).orderBy(pdfFiles.uploadedAt);
+    const fileType = c.req.query("type"); // optional: pdf, image, document, other
+
+    let allFiles;
+
+    if (fileType) {
+      allFiles = await db
+        .select()
+        .from(files)
+        .where(eq(files.fileType, fileType as any))
+        .orderBy(files.uploadedAt);
+    } else {
+      allFiles = await db.select().from(files).orderBy(files.uploadedAt);
+    }
 
     return c.json({
       success: true,
-      data: files,
+      data: allFiles,
     });
   } catch (error) {
     console.error("Error fetching files:", error);
@@ -297,7 +346,7 @@ api.get("/files/:id", async (c) => {
       );
     }
 
-    const file = await db.select().from(pdfFiles).where(eq(pdfFiles.id, id)).limit(1);
+    const file = await db.select().from(files).where(eq(files.id, id)).limit(1);
 
     if (!file || file.length === 0) {
       return c.json(
@@ -343,7 +392,7 @@ api.get("/files/:id/download", async (c) => {
       );
     }
 
-    const file = await db.select().from(pdfFiles).where(eq(pdfFiles.id, id)).limit(1);
+    const file = await db.select().from(files).where(eq(files.id, id)).limit(1);
 
     if (!file || file.length === 0) {
       return c.json(
@@ -383,7 +432,7 @@ api.get("/files/:id/download", async (c) => {
   }
 });
 
-// Delete PDF file
+// Delete file
 api.delete("/files/:id", async (c) => {
   try {
     const id = parseInt(c.req.param("id"));
@@ -399,7 +448,7 @@ api.delete("/files/:id", async (c) => {
       );
     }
 
-    const file = await db.select().from(pdfFiles).where(eq(pdfFiles.id, id)).limit(1);
+    const file = await db.select().from(files).where(eq(files.id, id)).limit(1);
 
     if (!file || file.length === 0) {
       return c.json(
@@ -418,7 +467,7 @@ api.delete("/files/:id", async (c) => {
     await storageService.deleteFile(fileData.bucket, fileData.fileKey);
 
     // Delete from database
-    await db.delete(pdfFiles).where(eq(pdfFiles.id, id));
+    await db.delete(files).where(eq(files.id, id));
 
     return c.json({
       success: true,
@@ -430,6 +479,233 @@ api.delete("/files/:id", async (c) => {
       {
         success: false,
         error: "ファイルの削除に失敗しました",
+        message: error instanceof Error ? error.message : "不明なエラーが発生しました",
+      },
+      500
+    );
+  }
+});
+
+// ========== NOTES ENDPOINTS ==========
+
+// Get all notes
+api.get("/notes", async (c) => {
+  try {
+    const allNotes = await db.select().from(notes).orderBy(desc(notes.updatedAt));
+
+    return c.json({
+      success: true,
+      data: allNotes,
+    });
+  } catch (error) {
+    console.error("Error fetching notes:", error);
+    return c.json(
+      {
+        success: false,
+        error: "ノート一覧の取得に失敗しました",
+        message: error instanceof Error ? error.message : "不明なエラーが発生しました",
+      },
+      500
+    );
+  }
+});
+
+// Get specific note by ID
+api.get("/notes/:id", async (c) => {
+  try {
+    const id = parseInt(c.req.param("id"));
+
+    if (isNaN(id)) {
+      return c.json(
+        {
+          success: false,
+          error: "無効なID",
+          message: "IDは数値である必要があります",
+        },
+        400
+      );
+    }
+
+    const note = await db.select().from(notes).where(eq(notes.id, id)).limit(1);
+
+    if (!note || note.length === 0) {
+      return c.json(
+        {
+          success: false,
+          error: "ノートが見つかりません",
+          message: `ID ${id} のノートは存在しません`,
+        },
+        404
+      );
+    }
+
+    return c.json({
+      success: true,
+      data: note[0],
+    });
+  } catch (error) {
+    console.error("Error fetching note:", error);
+    return c.json(
+      {
+        success: false,
+        error: "ノートの取得に失敗しました",
+        message: error instanceof Error ? error.message : "不明なエラーが発生しました",
+      },
+      500
+    );
+  }
+});
+
+// Create new note
+api.post("/notes", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { title, content, userId, createdBy, tags, metadata } = body;
+
+    if (!title || !content) {
+      return c.json(
+        {
+          success: false,
+          error: "必須パラメータが不足しています",
+          message: "title と content は必須です",
+        },
+        400
+      );
+    }
+
+    const [newNote] = await db
+      .insert(notes)
+      .values({
+        title,
+        content,
+        userId,
+        createdBy,
+        tags: tags || [],
+        metadata,
+      })
+      .returning();
+
+    return c.json({
+      success: true,
+      message: "ノートを作成しました",
+      data: newNote,
+    });
+  } catch (error) {
+    console.error("Error creating note:", error);
+    return c.json(
+      {
+        success: false,
+        error: "ノートの作成に失敗しました",
+        message: error instanceof Error ? error.message : "不明なエラーが発生しました",
+      },
+      500
+    );
+  }
+});
+
+// Update note
+api.put("/notes/:id", async (c) => {
+  try {
+    const id = parseInt(c.req.param("id"));
+
+    if (isNaN(id)) {
+      return c.json(
+        {
+          success: false,
+          error: "無効なID",
+          message: "IDは数値である必要があります",
+        },
+        400
+      );
+    }
+
+    const body = await c.req.json();
+    const { title, content, tags, metadata } = body;
+
+    const existingNote = await db.select().from(notes).where(eq(notes.id, id)).limit(1);
+
+    if (!existingNote || existingNote.length === 0) {
+      return c.json(
+        {
+          success: false,
+          error: "ノートが見つかりません",
+          message: `ID ${id} のノートは存在しません`,
+        },
+        404
+      );
+    }
+
+    const [updatedNote] = await db
+      .update(notes)
+      .set({
+        title: title !== undefined ? title : existingNote[0].title,
+        content: content !== undefined ? content : existingNote[0].content,
+        tags: tags !== undefined ? tags : existingNote[0].tags,
+        metadata: metadata !== undefined ? metadata : existingNote[0].metadata,
+        updatedAt: new Date(),
+      })
+      .where(eq(notes.id, id))
+      .returning();
+
+    return c.json({
+      success: true,
+      message: "ノートを更新しました",
+      data: updatedNote,
+    });
+  } catch (error) {
+    console.error("Error updating note:", error);
+    return c.json(
+      {
+        success: false,
+        error: "ノートの更新に失敗しました",
+        message: error instanceof Error ? error.message : "不明なエラーが発生しました",
+      },
+      500
+    );
+  }
+});
+
+// Delete note
+api.delete("/notes/:id", async (c) => {
+  try {
+    const id = parseInt(c.req.param("id"));
+
+    if (isNaN(id)) {
+      return c.json(
+        {
+          success: false,
+          error: "無効なID",
+          message: "IDは数値である必要があります",
+        },
+        400
+      );
+    }
+
+    const note = await db.select().from(notes).where(eq(notes.id, id)).limit(1);
+
+    if (!note || note.length === 0) {
+      return c.json(
+        {
+          success: false,
+          error: "ノートが見つかりません",
+          message: `ID ${id} のノートは存在しません`,
+        },
+        404
+      );
+    }
+
+    await db.delete(notes).where(eq(notes.id, id));
+
+    return c.json({
+      success: true,
+      message: "ノートを削除しました",
+    });
+  } catch (error) {
+    console.error("Error deleting note:", error);
+    return c.json(
+      {
+        success: false,
+        error: "ノートの削除に失敗しました",
         message: error instanceof Error ? error.message : "不明なエラーが発生しました",
       },
       500

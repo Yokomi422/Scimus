@@ -17,13 +17,18 @@ export const users = sqliteTable("users", {
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
-// PDF Files table for metadata management
-export const pdfFiles = sqliteTable("pdf_files", {
+// Files table for all file types (PDFs, images, documents, etc.)
+export const files = sqliteTable("files", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   fileKey: text("file_key").notNull().unique(),
   originalFilename: text("original_filename").notNull(),
   fileSize: integer("file_size").notNull(),
-  contentType: text("content_type").notNull().default("application/pdf"),
+  contentType: text("content_type").notNull(),
+  fileType: text("file_type", {
+    enum: ["pdf", "image", "document", "other"],
+  })
+    .notNull()
+    .default("other"),
   bucket: text("bucket").notNull(),
   storageProvider: text("storage_provider").notNull().default("minio"),
   etag: text("etag"),
@@ -43,5 +48,30 @@ export const pdfFiles = sqliteTable("pdf_files", {
   metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>(),
 });
 
-export type PdfFile = typeof pdfFiles.$inferSelect;
-export type NewPdfFile = typeof pdfFiles.$inferInsert;
+export type FileRecord = typeof files.$inferSelect;
+export type NewFileRecord = typeof files.$inferInsert;
+
+// Notes table for text-based notes
+export const notes = sqliteTable("notes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  userId: integer("user_id"),
+  createdBy: text("created_by"),
+  tags: text("tags", { mode: "json" }).$type<string[]>(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>(),
+});
+
+export type Note = typeof notes.$inferSelect;
+export type NewNote = typeof notes.$inferInsert;
+
+// Legacy: Keep pdf_files as alias for backward compatibility
+export const pdfFiles = files;
+export type PdfFile = FileRecord;
+export type NewPdfFile = NewFileRecord;

@@ -24,15 +24,17 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
   };
 }
 
-// PDF File types
+// File types
+export type FileType = "pdf" | "image" | "document" | "other";
 export type ProcessingStatus = "pending" | "processing" | "completed" | "failed";
 
-export interface PdfFile {
+export interface FileRecord {
   id: number;
   fileKey: string;
   originalFilename: string;
   fileSize: number;
   contentType: string;
+  fileType: FileType;
   bucket: string;
   storageProvider: string;
   etag?: string | null;
@@ -43,6 +45,9 @@ export interface PdfFile {
   updatedAt: Date;
   metadata?: Record<string, unknown> | null;
 }
+
+// Legacy: PdfFile is now an alias for FileRecord
+export type PdfFile = FileRecord;
 
 export interface PdfFileMetadata {
   pages?: number;
@@ -69,6 +74,28 @@ export interface UploadResponse extends ApiResponse<PdfFile> {
 export interface DownloadUrlResponse extends ApiResponse {
   downloadUrl?: string;
   expiresIn?: number;
+}
+
+// Note types
+export interface Note {
+  id: number;
+  title: string;
+  content: string;
+  userId?: number | null;
+  createdBy?: string | null;
+  tags?: string[] | null;
+  createdAt: Date;
+  updatedAt: Date;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface NewNote {
+  title: string;
+  content: string;
+  userId?: number;
+  createdBy?: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
 }
 
 // Add more shared types here
