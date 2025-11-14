@@ -133,12 +133,17 @@ export default function PdfFileList() {
     );
   }
 
+  // 最大4件まで表示（最新順）
+  const recentFiles = files.slice(0, 4);
+
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">アップロード済みファイル</h2>
-          <p className="text-sm text-gray-600 mt-1">{files.length}件のファイル</p>
+          <h2 className="text-2xl font-bold text-gray-900">Recent</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            {recentFiles.length}件表示中 {files.length > 4 && `/ ${files.length}件中`}
+          </p>
         </div>
         <button
           onClick={() => fetchFiles(true)}
@@ -163,7 +168,7 @@ export default function PdfFileList() {
       </div>
 
       <div className="space-y-3">
-        {files.map((file) => (
+        {recentFiles.map((file) => (
           <PdfFileCard key={file.id} file={file} onDelete={handleDelete} />
         ))}
       </div>
