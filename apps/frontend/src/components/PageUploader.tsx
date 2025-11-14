@@ -417,7 +417,15 @@ export default function PageUploader() {
 
       {/* Drag & Drop Area */}
       <Dropzone
-        accept={{ 'application/pdf': ['.pdf'] }}
+        accept={{
+          'application/pdf': ['.pdf'],
+          'image/jpeg': ['.jpg', '.jpeg'],
+          'image/png': ['.png'],
+          'image/gif': ['.gif'],
+          'image/webp': ['.webp'],
+          'text/plain': ['.txt'],
+          'text/markdown': ['.md'],
+        }}
         maxFiles={5}
         maxSize={100 * 1024 * 1024}
         multiple={true}
@@ -428,7 +436,7 @@ export default function PageUploader() {
       >
         <div className="text-center p-8">
           <p className="text-base text-gray-700 mb-2">Paste or drag & drop a file here</p>
-          <p className="text-sm text-gray-400">File types supported: PDF, TXT, JPG, PNG, MD</p>
+          <p className="text-sm text-gray-400">File types supported: PDF, TXT, JPG, PNG, GIF, WEBP, MD</p>
         </div>
         <DropzoneContent />
       </Dropzone>
