@@ -184,6 +184,10 @@ export default function PageUploader() {
       });
 
       toast.success(`${file.name} のアップロードが完了しました`);
+
+      // ファイルリストを更新するためのカスタムイベントを発火
+      window.dispatchEvent(new Event('fileUploaded'));
+
       return response.data;
     } catch (error: any) {
       if (axios.isCancel(error)) {
