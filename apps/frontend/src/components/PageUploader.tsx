@@ -1,8 +1,11 @@
-import { Dropzone, DropzoneContent, DropzoneEmptyState } from '@/components/ui/shadcn-io/dropzone';
+import { Dropzone, DropzoneContent } from '@/components/ui/shadcn-io/dropzone';
 import { useState } from 'react';
 import axios, { type AxiosProgressEvent, type CancelTokenSource } from 'axios';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface FileUploadProgress {
   file: File;
@@ -15,10 +18,14 @@ interface FileUploadProgress {
   estimatedTimeRemaining?: number;
 }
 
+type SourceFilter = 'all' | 'notes' | 'pdfs';
+
 export default function PageUploader() {
   const [files, setFiles] = useState<File[] | undefined>();
   const [uploadProgress, setUploadProgress] = useState<Map<string, FileUploadProgress>>(new Map());
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
 
   const handleDrop = (acceptedFiles: File[]) => {
     setFiles((prev) => {
@@ -271,13 +278,144 @@ export default function PageUploader() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      {/* Search Input */}
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">ドキュメントをアップロード</h2>
-        <p className="text-sm text-gray-600">
-          PDFファイルをアップロードして分析し、知識を抽出します。最大5ファイル、各100MBまで。
-        </p>
+        <div className="relative">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          <Input
+            type="text"
+            placeholder="Search your content"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 h-12 text-base"
+          />
+        </div>
       </div>
 
+      {/* Source Filter */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-700">Source:</span>
+          <div className="flex gap-2">
+            <Button
+              variant={sourceFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSourceFilter('all')}
+              className={cn(
+                'rounded-full px-4',
+                sourceFilter === 'all' && 'bg-indigo-600 hover:bg-indigo-700'
+              )}
+            >
+              All
+            </Button>
+            <Button
+              variant={sourceFilter === 'notes' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSourceFilter('notes')}
+              className={cn(
+                'rounded-full px-4',
+                sourceFilter === 'notes' && 'bg-indigo-600 hover:bg-indigo-700'
+              )}
+            >
+              Notes
+            </Button>
+            <Button
+              variant={sourceFilter === 'pdfs' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSourceFilter('pdfs')}
+              className={cn(
+                'rounded-full px-4',
+                sourceFilter === 'pdfs' && 'bg-indigo-600 hover:bg-indigo-700'
+              )}
+            >
+              PDFs
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Dotted Line Separator */}
+      <div className="mb-6 border-t border-dashed border-gray-300" />
+
+      {/* Start Uploading Section */}
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Start Uploading</h2>
+        <div className="flex gap-3">
+          {/* PDF Button with Hover Tooltip */}
+          <div className="relative group">
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={() => {
+                // Handle upload PDF action
+              }}
+            >
+              <svg
+                className="w-5 h-5 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                />
+              </svg>
+              <span className="font-medium text-gray-700">PDF</span>
+            </button>
+
+            {/* Hover Tooltip */}
+            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-gray-900 text-white text-sm rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+              Upload PDF
+            </div>
+          </div>
+
+          {/* Note Button with Hover Tooltip */}
+          <div className="relative group">
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={() => {
+                // Handle create note action
+              }}
+            >
+              <svg
+                className="w-5 h-5 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+              <span className="font-medium text-gray-700">Note</span>
+            </button>
+
+            {/* Hover Tooltip */}
+            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-gray-900 text-white text-sm rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+              Create New Note
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Drag & Drop Area */}
       <Dropzone
         accept={{ 'application/pdf': ['.pdf'] }}
         maxFiles={5}
@@ -286,9 +424,12 @@ export default function PageUploader() {
         onDrop={handleDrop}
         onError={handleError}
         src={files}
-        className="border-2 border-dashed border-indigo-300 hover:border-indigo-500 transition-colors rounded-lg bg-indigo-50/30"
+        className="border-2 border-dashed border-gray-300 hover:border-indigo-500 transition-colors rounded-lg bg-gray-50/50 min-h-[200px] flex items-center justify-center"
       >
-        <DropzoneEmptyState />
+        <div className="text-center p-8">
+          <p className="text-base text-gray-700 mb-2">Paste or drag & drop a file here</p>
+          <p className="text-sm text-gray-400">File types supported: PDF, TXT, JPG, PNG, MD</p>
+        </div>
         <DropzoneContent />
       </Dropzone>
 
