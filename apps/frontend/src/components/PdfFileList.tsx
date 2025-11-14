@@ -139,12 +139,7 @@ export default function PdfFileList() {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Recent</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            {recentFiles.length}件表示中 {files.length > 4 && `/ ${files.length}件中`}
-          </p>
-        </div>
+        <h2 className="text-2xl font-bold text-gray-900">Recent</h2>
         <button
           onClick={() => fetchFiles(true)}
           disabled={refreshing}
