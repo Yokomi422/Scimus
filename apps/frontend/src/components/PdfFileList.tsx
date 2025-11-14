@@ -8,10 +8,15 @@ export default function PdfFileList() {
   const [files, setFiles] = useState<PdfFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchFiles = async () => {
+  const fetchFiles = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
 
       const response = await axios.get('http://localhost:3001/api/v1/files');
@@ -27,14 +32,28 @@ export default function PdfFileList() {
         error?.message ||
         'ファイルの取得に失敗しました';
       setError(errorMessage);
-      toast.error('エラー', { description: errorMessage });
+      if (!isRefresh) {
+        toast.error('エラー', { description: errorMessage });
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
     fetchFiles();
+
+    // カスタムイベントリスナーを追加してアップロード完了時にリフレッシュ
+    const handleFileUploaded = () => {
+      fetchFiles(true);
+    };
+
+    window.addEventListener('fileUploaded', handleFileUploaded);
+
+    return () => {
+      window.removeEventListener('fileUploaded', handleFileUploaded);
+    };
   }, []);
 
   const handleDelete = (id: number) => {
@@ -76,7 +95,7 @@ export default function PdfFileList() {
               <p className="text-sm font-medium text-red-800">エラーが発生しました</p>
               <p className="text-sm text-red-700 mt-1">{error}</p>
               <button
-                onClick={fetchFiles}
+                onClick={() => fetchFiles()}
                 className="mt-3 text-sm text-red-700 hover:text-red-800 font-medium underline"
               >
                 再試行
@@ -122,12 +141,13 @@ export default function PdfFileList() {
           <p className="text-sm text-gray-600 mt-1">{files.length}件のファイル</p>
         </div>
         <button
-          onClick={fetchFiles}
-          className="p-2 text-gray-600 hover:text-indigo-600 transition-colors"
+          onClick={() => fetchFiles(true)}
+          disabled={refreshing}
+          className="p-2 text-gray-600 hover:text-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="更新"
         >
           <svg
-            className="w-5 h-5"
+            className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
